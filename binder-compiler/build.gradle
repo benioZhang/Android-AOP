@@ -1,0 +1,15 @@
+apply plugin: 'java-library'
+
+dependencies {
+    implementation project(':binder-annotations')
+    implementation deps.javapoet
+    // 使用 Gradle 提供的环境变量，避免自己写大量兼容性代码
+    compileOnly files(org.gradle.internal.jvm.Jvm.current().getToolsJar())
+}
+
+sourceCompatibility = "1.7"
+targetCompatibility = "1.7"
+
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+}
