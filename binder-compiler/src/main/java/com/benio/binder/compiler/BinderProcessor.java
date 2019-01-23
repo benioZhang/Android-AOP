@@ -8,10 +8,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.annotation.Annotation;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -24,6 +22,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
@@ -64,7 +63,7 @@ public class BinderProcessor extends AbstractProcessor {
         note(null, "start processing");
 
         Map<TypeElement, BindingSet> bindingMap = findAndParseTargets(env);
-/*        for (Map.Entry<TypeElement, BindingSet> entry : bindingMap.entrySet()) {
+        for (Map.Entry<TypeElement, BindingSet> entry : bindingMap.entrySet()) {
             TypeElement typeElement = entry.getKey();
             BindingSet bindingSet = entry.getValue();
             try {
@@ -72,7 +71,7 @@ public class BinderProcessor extends AbstractProcessor {
             } catch (IOException e) {
                 error(typeElement, "Unable to write binding for type %s: %s", typeElement, e.getMessage());
             }
-        }*/
+        }
 
         long endMillis = System.currentTimeMillis();
         note(null, "end processing, cost time: %d", endMillis - startMillis);
@@ -106,13 +105,31 @@ public class BinderProcessor extends AbstractProcessor {
         // 获取注解的成员变量类型
         String varType = element.asType().toString();
         // 获取该注解的值
-        int value = element.getAnnotation(BindView.class).value();
+        int id = element.getAnnotation(BindView.class).value();
         note(element, "package: %s,\n class: %s,\n var: %s,\n type: %s,\n value: %d.",
-                packageName, className, varName, varType, value);
+                packageName, className, varName, varType, id);
 
-        List<ViewBinding> viewBindings = new ArrayList<>();
-        BindingSet bindingSet = new BindingSet(TypeName.get(element.asType()), ClassName.get(classElement), viewBindings);
-        bindingMap.put(classElement, bindingSet);
+        BindingSet bindingSet = getOrCreateBindingSet(bindingMap, classElement);
+        String name = element.getSimpleName().toString();
+        TypeName type = TypeName.get(element.asType());
+        bindingSet.addField(id, new ViewBinding(id, name, type));
+    }
+
+    private BindingSet getOrCreateBindingSet(Map<TypeElement, BindingSet> bindingMap, TypeElement enclosingElement) {
+        BindingSet bindingSet = bindingMap.get(enclosingElement);
+        if (bindingSet == null) {
+            TypeMirror typeMirror = enclosingElement.asType();
+            TypeName targetType = TypeName.get(typeMirror);
+
+            String packageName = mElementUtils.getPackageOf(enclosingElement).getQualifiedName().toString();
+            String className = enclosingElement.getQualifiedName().toString().substring(
+                    packageName.length() + 1).replace('.', '$');
+            ClassName bindingClassName = ClassName.get(packageName, className + "_ViewBinding");
+
+            bindingSet = new BindingSet(targetType, bindingClassName);
+            bindingMap.put(enclosingElement, bindingSet);
+        }
+        return bindingSet;
     }
 
     private void logParsingError(Element element, Class<? extends Annotation> annotation,

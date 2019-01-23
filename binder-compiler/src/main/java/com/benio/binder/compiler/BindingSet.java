@@ -2,11 +2,14 @@ package com.benio.binder.compiler;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 
+import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import javax.lang.model.element.Modifier;
 
@@ -14,14 +17,15 @@ import javax.lang.model.element.Modifier;
  * A set of all the bindings requested by a single type.
  */
 public class BindingSet {
-    private TypeName targetTypeName;
-    private ClassName bindingClassName;
-    private List<ViewBinding> viewBindings;
+    // 绑定的类
+    private final TypeName targetTypeName;
+    // 生成的类
+    private final ClassName bindingClassName;
+    private Map<Integer, ViewBinding> viewIdMap = new LinkedHashMap<>();
 
-    public BindingSet(TypeName targetTypeName, ClassName bindingClassName, List<ViewBinding> viewBindings) {
+    public BindingSet(TypeName targetTypeName, ClassName bindingClassName) {
         this.targetTypeName = targetTypeName;
         this.bindingClassName = bindingClassName;
-        this.viewBindings = Collections.unmodifiableList(viewBindings);
     }
 
     JavaFile brewJava() {
@@ -35,6 +39,22 @@ public class BindingSet {
         TypeSpec.Builder result = TypeSpec.classBuilder(bindingClassName.simpleName())
                 .addModifiers(Modifier.PUBLIC);
 
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("bind")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(void.class)
+                .addParameter(targetTypeName, "target");
+
+        Collection<ViewBinding> viewBindings = Collections.unmodifiableCollection(viewIdMap.values());
+        for (ViewBinding viewBinding : viewBindings) {
+
+        }
+
+        result.addMethod(methodBuilder.build());
         return result.build();
     }
+
+    public void addField(int id, ViewBinding viewBinding) {
+        viewIdMap.put(id, viewBinding);
+    }
+
 }
