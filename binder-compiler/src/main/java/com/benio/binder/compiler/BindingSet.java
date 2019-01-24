@@ -31,7 +31,7 @@ public class BindingSet {
     JavaFile brewJava() {
         TypeSpec bindingConfiguration = createType();
         return JavaFile.builder(bindingClassName.packageName(), bindingConfiguration)
-                .addFileComment("Generated code from Binder. Do not modify!")
+                .addFileComment("Generated code from ViewBinder. Do not modify!")
                 .build();
     }
 
@@ -46,19 +46,37 @@ public class BindingSet {
                 .returns(void.class)
                 .addParameter(targetTypeName, "target");
 
-        // target.title = (TextView)target.findViewById(R.id.title);
         Collection<ViewBinding> viewBindings = Collections.unmodifiableCollection(viewIdMap.values());
         for (ViewBinding viewBinding : viewBindings) {
-            methodBuilder.addStatement("target.$L = ($T)target.findViewById($L)",
-                    viewBinding.getName(), viewBinding.getType(), viewBinding.getId());
+            FieldViewBinding fieldBinding = viewBinding.getFieldBinding();
+            if (fieldBinding != null) {
+                // target.title = (TextView)target.findViewById(R.id.title);
+                methodBuilder.addStatement("target.$L = ($T)target.findViewById($L)",
+                        fieldBinding.getName(), fieldBinding.getType(), viewBinding.getId());
+            }
+
+
         }
 
         result.addMethod(methodBuilder.build());
         return result.build();
     }
 
-    public void addField(ViewBinding viewBinding) {
-        viewIdMap.put(viewBinding.getId(), viewBinding);
+    public void addField(int id, FieldViewBinding fieldBinding) {
+        getOrCreateViewBinding(id).setFieldBinding(fieldBinding);
+    }
+
+    public void addMethod(int id, MethodViewBinding methodBinding) {
+
+    }
+
+    private ViewBinding getOrCreateViewBinding(int id) {
+        ViewBinding viewBinding = viewIdMap.get(id);
+        if (viewBinding == null) {
+            viewBinding = new ViewBinding(id);
+            viewIdMap.put(id, viewBinding);
+        }
+        return viewBinding;
     }
 
 }

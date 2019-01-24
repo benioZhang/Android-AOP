@@ -1,6 +1,7 @@
 package com.benio.binder.compiler;
 
 import com.benio.binder.BindView;
+import com.benio.binder.OnClick;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 
@@ -8,8 +9,10 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.annotation.Annotation;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,7 +23,9 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
@@ -89,6 +94,14 @@ public class BinderProcessor extends AbstractProcessor {
             }
         }
 
+        for (Element element : env.getElementsAnnotatedWith(OnClick.class)) {
+            try {
+                parseOnClick(element, bindingMap);
+            } catch (Exception e) {
+                logParsingError(element, OnClick.class, e);
+            }
+        }
+
         return bindingMap;
     }
 
@@ -99,8 +112,36 @@ public class BinderProcessor extends AbstractProcessor {
         TypeName type = TypeName.get(element.asType());
 
         BindingSet bindingSet = getOrCreateBindingSet(bindingMap, enclosingElement);
-        bindingSet.addField(new ViewBinding(id, name, type));
+        bindingSet.addField(id, new FieldViewBinding(name, type));
         note(element, "id: %d, name: %s, type: %s", id, name, type.toString());
+    }
+
+    private void parseOnClick(Element element, Map<TypeElement, BindingSet> bindingMap) {
+        TypeElement enclosingElement = (TypeElement) element.getEnclosingElement();
+        int[] ids = element.getAnnotation(OnClick.class).value();
+        String name = element.getSimpleName().toString();
+        ExecutableElement executableElement = (ExecutableElement) element;
+        TypeMirror returnType = executableElement.getReturnType();
+        List<? extends VariableElement> methodParameters = executableElement.getParameters();
+
+        boolean hasError = false;
+        String returnTypeStr = "void";
+        if (!returnType.toString().equals(returnTypeStr)) {
+            error(element, "@%s methods must have a '%s' return type. (%s.%s)",
+                    OnClick.class.getSimpleName(), returnTypeStr,
+                    enclosingElement.getQualifiedName(), element.getSimpleName());
+            hasError = true;
+        }
+
+        if (hasError) {
+            return;
+        }
+
+        BindingSet bindingSet = getOrCreateBindingSet(bindingMap, enclosingElement);
+        for (int id : ids) {
+            //bindingSet.addMethod(id, new MethodViewBinding());
+        }
+        note(element, "ids: %s, name: %s, returnType: %s", Arrays.toString(ids), name, returnType.toString());
     }
 
     private BindingSet getOrCreateBindingSet(Map<TypeElement, BindingSet> bindingMap, TypeElement enclosingElement) {

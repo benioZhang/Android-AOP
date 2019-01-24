@@ -9,8 +9,10 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.benio.binder.BindView;
+import com.benio.binder.OnClick;
 import com.benio.binder.ViewBinder;
 
 public class MainActivity extends AppCompatActivity {
@@ -42,5 +44,10 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(MainActivity.this, SecondActivity.class));
             }
         });
+    }
+
+    @OnClick({R.id.image})
+    void onImageClick() {
+        Toast.makeText(this, "click image", Toast.LENGTH_SHORT).show();
     }
 }
