@@ -20,7 +20,6 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -94,25 +93,14 @@ public class BinderProcessor extends AbstractProcessor {
     }
 
     private void parseBindView(Element element, Map<TypeElement, BindingSet> bindingMap) {
-        // 获取包名
-        PackageElement packageElement = mElementUtils.getPackageOf(element);
-        String packageName = packageElement.getQualifiedName().toString();
-        // 获取包装类类型
-        TypeElement classElement = (TypeElement) element.getEnclosingElement();
-        String className = classElement.getQualifiedName().toString();
-        // 获取注解的成员变量名
-        String varName = element.getSimpleName().toString();
-        // 获取注解的成员变量类型
-        String varType = element.asType().toString();
-        // 获取该注解的值
+        TypeElement enclosingElement = (TypeElement) element.getEnclosingElement();
         int id = element.getAnnotation(BindView.class).value();
-        note(element, "package: %s,\n class: %s,\n var: %s,\n type: %s,\n value: %d.",
-                packageName, className, varName, varType, id);
-
-        BindingSet bindingSet = getOrCreateBindingSet(bindingMap, classElement);
         String name = element.getSimpleName().toString();
         TypeName type = TypeName.get(element.asType());
-        bindingSet.addField(id, new ViewBinding(id, name, type));
+
+        BindingSet bindingSet = getOrCreateBindingSet(bindingMap, enclosingElement);
+        bindingSet.addField(new ViewBinding(id, name, type));
+        note(element, "id: %d, name: %s, type: %s", id, name, type.toString());
     }
 
     private BindingSet getOrCreateBindingSet(Map<TypeElement, BindingSet> bindingMap, TypeElement enclosingElement) {

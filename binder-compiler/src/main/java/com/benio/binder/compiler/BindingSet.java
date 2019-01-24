@@ -36,25 +36,29 @@ public class BindingSet {
     }
 
     private TypeSpec createType() {
+        // public class MainActivity_ViewBinding
         TypeSpec.Builder result = TypeSpec.classBuilder(bindingClassName.simpleName())
                 .addModifiers(Modifier.PUBLIC);
 
+        // public static void bind(MainActivity target)
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("bind")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(void.class)
                 .addParameter(targetTypeName, "target");
 
+        // target.title = (TextView)target.findViewById(R.id.title);
         Collection<ViewBinding> viewBindings = Collections.unmodifiableCollection(viewIdMap.values());
         for (ViewBinding viewBinding : viewBindings) {
-
+            methodBuilder.addStatement("target.$L = ($T)target.findViewById($L)",
+                    viewBinding.getName(), viewBinding.getType(), viewBinding.getId());
         }
 
         result.addMethod(methodBuilder.build());
         return result.build();
     }
 
-    public void addField(int id, ViewBinding viewBinding) {
-        viewIdMap.put(id, viewBinding);
+    public void addField(ViewBinding viewBinding) {
+        viewIdMap.put(viewBinding.getId(), viewBinding);
     }
 
 }
