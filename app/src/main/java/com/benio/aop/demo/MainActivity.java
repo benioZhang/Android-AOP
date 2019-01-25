@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    @OnClick({R.id.image})
+    @OnClick({R.id.image, R.id.button})
     void onImageClick() {
         Toast.makeText(this, "click image", Toast.LENGTH_SHORT).show();
     }

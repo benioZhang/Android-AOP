@@ -6,17 +6,19 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 
+import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import javax.lang.model.element.Modifier;
 
 /**
  * A set of all the bindings requested by a single type.
  */
-public class BindingSet {
+class BindingSet {
     // 绑定的类
     private final TypeName targetTypeName;
     // 生成的类
@@ -55,7 +57,10 @@ public class BindingSet {
                         fieldBinding.getName(), fieldBinding.getType(), viewBinding.getId());
             }
 
-
+            Map<Class<? extends Annotation>, Set<MethodViewBinding>> methodBindings = viewBinding.getMethodBindings();
+            for (Map.Entry<Class<? extends Annotation>, Set<MethodViewBinding>> e : methodBindings.entrySet()) {
+                // TODO generate listener code
+            }
         }
 
         result.addMethod(methodBuilder.build());
@@ -66,8 +71,8 @@ public class BindingSet {
         getOrCreateViewBinding(id).setFieldBinding(fieldBinding);
     }
 
-    public void addMethod(int id, MethodViewBinding methodBinding) {
-
+    public void addMethod(int id, Class<? extends Annotation> annotation, MethodViewBinding methodBinding) {
+        getOrCreateViewBinding(id).addMethodBinding(annotation, methodBinding);
     }
 
     private ViewBinding getOrCreateViewBinding(int id) {

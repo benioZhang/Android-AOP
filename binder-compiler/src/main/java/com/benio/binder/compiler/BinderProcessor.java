@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -34,6 +36,10 @@ public class BinderProcessor extends AbstractProcessor {
     private Filer mFiler; //文件相关的辅助类，生成JavaSourceCode
     private Elements mElementUtils; //元素相关的辅助类，帮助我们去获取一些元素相关的信息
     private Messager mMessager; //日志相关的辅助类
+    private static final List<Class<? extends Annotation>> LISTENERS =
+            new ArrayList<Class<? extends Annotation>>() {{
+                add(OnClick.class);
+            }};
 
     @Override
     public synchronized void init(ProcessingEnvironment env) {
@@ -50,6 +56,9 @@ public class BinderProcessor extends AbstractProcessor {
     public Set<String> getSupportedAnnotationTypes() {
         Set<String> types = new LinkedHashSet<>();
         types.add(BindView.class.getCanonicalName());
+        for (Class<? extends Annotation> cls : LISTENERS) {
+            types.add(cls.getCanonicalName());
+        }
         return types;
     }
 
@@ -94,11 +103,13 @@ public class BinderProcessor extends AbstractProcessor {
             }
         }
 
-        for (Element element : env.getElementsAnnotatedWith(OnClick.class)) {
-            try {
-                parseOnClick(element, bindingMap);
-            } catch (Exception e) {
-                logParsingError(element, OnClick.class, e);
+        for (Class<? extends Annotation> listener : LISTENERS) {
+            for (Element element : env.getElementsAnnotatedWith(listener)) {
+                try {
+                    parseListenerAnnotation(listener, element, bindingMap);
+                } catch (Exception e) {
+                    logParsingError(element, listener, e);
+                }
             }
         }
 
@@ -107,8 +118,11 @@ public class BinderProcessor extends AbstractProcessor {
 
     private void parseBindView(Element element, Map<TypeElement, BindingSet> bindingMap) {
         TypeElement enclosingElement = (TypeElement) element.getEnclosingElement();
+        // 绑定的id
         int id = element.getAnnotation(BindView.class).value();
+        // 变量名
         String name = element.getSimpleName().toString();
+        // 变量类型
         TypeName type = TypeName.get(element.asType());
 
         BindingSet bindingSet = getOrCreateBindingSet(bindingMap, enclosingElement);
@@ -116,32 +130,43 @@ public class BinderProcessor extends AbstractProcessor {
         note(element, "id: %d, name: %s, type: %s", id, name, type.toString());
     }
 
-    private void parseOnClick(Element element, Map<TypeElement, BindingSet> bindingMap) {
+    private void parseListenerAnnotation(Class<? extends Annotation> annotationClass, Element element,
+                                         Map<TypeElement, BindingSet> bindingMap) throws Exception {
         TypeElement enclosingElement = (TypeElement) element.getEnclosingElement();
-        int[] ids = element.getAnnotation(OnClick.class).value();
-        String name = element.getSimpleName().toString();
         ExecutableElement executableElement = (ExecutableElement) element;
-        TypeMirror returnType = executableElement.getReturnType();
-        List<? extends VariableElement> methodParameters = executableElement.getParameters();
 
-        boolean hasError = false;
-        String returnTypeStr = "void";
-        if (!returnType.toString().equals(returnTypeStr)) {
-            error(element, "@%s methods must have a '%s' return type. (%s.%s)",
-                    OnClick.class.getSimpleName(), returnTypeStr,
-                    enclosingElement.getQualifiedName(), element.getSimpleName());
-            hasError = true;
+        // 调用注解的value方法，获取ids数组
+        Annotation annotation = element.getAnnotation(annotationClass);
+        Method annotationValue = annotationClass.getDeclaredMethod("value");
+        if (annotationValue.getReturnType() != int[].class) {
+            throw new IllegalStateException(
+                    String.format("@%s annotation value() type not int[].", annotationClass));
         }
 
-        if (hasError) {
-            return;
+        // 实际应用时，还应该有很多检测，如检查参数类型，参数个数，返回值等
+
+        // 绑定的id
+        int[] ids = (int[]) annotationValue.invoke(annotation);
+        // 方法名
+        String name = element.getSimpleName().toString();
+        // 放回类型
+        TypeMirror returnType = executableElement.getReturnType();
+        // 参数
+        List<? extends VariableElement> methodParameters = executableElement.getParameters();
+
+        List<TypeName> parameters = new ArrayList<>(methodParameters.size());
+        for (VariableElement variableElement : methodParameters) {
+            parameters.add(TypeName.get(variableElement.asType()));
         }
 
         BindingSet bindingSet = getOrCreateBindingSet(bindingMap, enclosingElement);
+        MethodViewBinding binding = new MethodViewBinding(name, parameters, TypeName.get(returnType));
         for (int id : ids) {
-            //bindingSet.addMethod(id, new MethodViewBinding());
+            bindingSet.addMethod(id, annotationClass, binding);
         }
-        note(element, "ids: %s, name: %s, returnType: %s", Arrays.toString(ids), name, returnType.toString());
+
+        note(element, "annotationClass: %s, ids: %s, name: %s, returnType: %s",
+                annotationClass.getSimpleName(), Arrays.toString(ids), name, returnType.toString());
     }
 
     private BindingSet getOrCreateBindingSet(Map<TypeElement, BindingSet> bindingMap, TypeElement enclosingElement) {
