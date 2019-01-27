@@ -149,7 +149,7 @@ public class BinderProcessor extends AbstractProcessor {
         int[] ids = (int[]) annotationValue.invoke(annotation);
         // 方法名
         String name = element.getSimpleName().toString();
-        // 放回类型
+        // 返回类型
         TypeMirror returnType = executableElement.getReturnType();
         // 参数
         List<? extends VariableElement> methodParameters = executableElement.getParameters();

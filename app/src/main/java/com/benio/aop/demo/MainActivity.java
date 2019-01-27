@@ -38,16 +38,15 @@ public class MainActivity extends AppCompatActivity {
         mTitleView.setText("I'm a title");
         mImageView.setAlpha(0.5f);
         mButton.setText("Start");
-        mButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(MainActivity.this, SecondActivity.class));
-            }
-        });
     }
 
     @OnClick({R.id.image, R.id.button})
-    void onImageClick() {
-        Toast.makeText(this, "click image", Toast.LENGTH_SHORT).show();
+    void onClick(View view) {
+        int id = view.getId();
+        if (id == R.id.image) {
+            Toast.makeText(this, "click image", Toast.LENGTH_SHORT).show();
+        } else if (id == R.id.button) {
+            startActivity(new Intent(MainActivity.this, SecondActivity.class));
+        }
     }
 }

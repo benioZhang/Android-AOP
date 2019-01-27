@@ -1,5 +1,6 @@
 package com.benio.binder.compiler;
 
+import com.benio.binder.OnClick;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -19,6 +20,7 @@ import javax.lang.model.element.Modifier;
  * A set of all the bindings requested by a single type.
  */
 class BindingSet {
+    private static final ClassName VIEW = ClassName.get("android.view", "View");
     // 绑定的类
     private final TypeName targetTypeName;
     // 生成的类
@@ -46,25 +48,58 @@ class BindingSet {
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("bind")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(void.class)
-                .addParameter(targetTypeName, "target");
+                .addParameter(targetTypeName, "target", Modifier.FINAL);
 
         Collection<ViewBinding> viewBindings = Collections.unmodifiableCollection(viewIdMap.values());
         for (ViewBinding viewBinding : viewBindings) {
-            FieldViewBinding fieldBinding = viewBinding.getFieldBinding();
-            if (fieldBinding != null) {
-                // target.title = (TextView)target.findViewById(R.id.title);
-                methodBuilder.addStatement("target.$L = ($T)target.findViewById($L)",
-                        fieldBinding.getName(), fieldBinding.getType(), viewBinding.getId());
-            }
-
-            Map<Class<? extends Annotation>, Set<MethodViewBinding>> methodBindings = viewBinding.getMethodBindings();
-            for (Map.Entry<Class<? extends Annotation>, Set<MethodViewBinding>> e : methodBindings.entrySet()) {
-                // TODO generate listener code
-            }
+            addViewBinding(methodBuilder, viewBinding);
         }
 
         result.addMethod(methodBuilder.build());
         return result.build();
+    }
+
+    private void addViewBinding(MethodSpec.Builder methodBuilder, ViewBinding viewBinding) {
+        FieldViewBinding fieldBinding = viewBinding.getFieldBinding();
+        if (fieldBinding != null) {
+            // target.title = (TextView)target.findViewById(R.id.title);
+            methodBuilder.addStatement("target.$L = ($T)target.findViewById($L)",
+                    fieldBinding.getName(), fieldBinding.getType(), viewBinding.getId());
+        }
+
+        Map<Class<? extends Annotation>, Set<MethodViewBinding>> methodBindings =
+                viewBinding.getMethodBindings();
+        for (Map.Entry<Class<? extends Annotation>, Set<MethodViewBinding>> e : methodBindings.entrySet()) {
+            Class<? extends Annotation> annotationClass = e.getKey();
+            Set<MethodViewBinding> methodViewBindings = e.getValue();
+
+            if (OnClick.class.equals(annotationClass)) {
+                // 一个View只会有一个OnClick
+                MethodViewBinding methodViewBinding = methodViewBindings.iterator().next();
+                // new View.OnClickListener() {
+                //      @Override
+                //      public void onClick(View view) {
+                //        target.onClick(view);
+                //      }
+                //    }
+                TypeSpec listener = TypeSpec.anonymousClassBuilder("")
+                        .addSuperinterface(ClassName.get("android.view", "View", "OnClickListener"))
+                        .addMethod(MethodSpec.methodBuilder("onClick")
+                                .addAnnotation(Override.class)
+                                .addModifiers(Modifier.PUBLIC)
+                                .returns(void.class)
+                                .addParameter(VIEW, "view")
+                                // 假设用OnClick绑定的方法都有View参数
+                                .addStatement("target.$N($N)", methodViewBinding.getName(), "view")
+                                .build())
+                        .build();
+                if (fieldBinding != null) {
+                    methodBuilder.addStatement("target.$L.setOnClickListener($L)", fieldBinding.getName(), listener);
+                } else {
+                    methodBuilder.addStatement("target.findViewById($L).setOnClickListener($L)", viewBinding.getId(), listener);
+                }
+            }
+        }
     }
 
     public void addField(int id, FieldViewBinding fieldBinding) {
