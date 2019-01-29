@@ -86,7 +86,7 @@ public class BinderProcessor extends AbstractProcessor {
 
 另外，如果注解处理器类生成了新的源文件，APT会重复调用`Processor`的方法，直到不再生成新的源文件为止（因为新生成的源文件可能会包含需要被处理的注解）
 
-##### 如何编译Processer?
+##### 如何编译注解处理器?
 方法一：  
 在Gradle Project面板中，依次选择binder-compiler -> Tasks -> build -> build，双击运行即可
 
@@ -110,18 +110,287 @@ tasks.withType(JavaCompile) {
 
 #### 注册注解处理器
 方法一：  
-创建javax.annotation.processing.Processor文件
-与java平级创建resources/META-INF/services/目录
+在`binder-compiler`中的/src/main/文件夹下，新建resources/META-INF/services/文件夹，然后创建一个名为`javax.annotation.processing.Processor`的文件。文件内容为
+```
+com.benio.binder.compiler.BinderProcessor
+```
+注意：目录结构和文件名是固定的，文件内容是注解处理器的全称
+
+![注册目录](img/register_processor_dir.png)
 
 方法二：  
-使用Google的[AutoService](https://github.com/google/auto/tree/master/service)。
+使用Google的[AutoService](https://github.com/google/auto/tree/master/service)。用`AutoService`对注解处理器进行标记
+```Java
+@AutoService(Processor.class)
+public class BinderProcessor extends AbstractProcessor {
+    ...
+}
+```
+标记后再build一下，`AutoService`就会自动生成方法一里面的`javax.annotation.processing.Processor`文件
 
-#### 编写Processor
-TODO
+#### 实现注解处理器的process
+process()方法里面做的事情有两个：
+
+* 收集被注解的`Element`的信息
+* 生成用于绑定的类，这里我把这些类命名为`ViewBinding`类
+
+这里简单介绍下`Element`的几种类型：
+
+* `VariableElement`：一般代表成员变量
+* `ExecutableElement`：一般代表类中的方法
+* `TypeElement`：一般代表代表类
+* `PackageElement`：一般代表Package
+
+##### 类的设计
+
+每个`Activity`将生成一个`ViewBinding`类。如`MainActivity`将生成`MainActivity_ViewBinding`。我们的目标是要生成这样一个类
+```Java
+public class MainActivity_ViewBinding {
+  public static void bind(final MainActivity target) {
+    target.mTitleView = (TextView)target.findViewById(R.id.title);
+    target.mImageView = (ImageView)target.findViewById(R.id.image);
+  }
+}
+```
+收集`Activity`中使用了`@BindView`的属性的信息，如属性名，类型等，并将收集的信息包装成类。这里参考了`ButterKnife`的类设计
+
+![uml](img/viewbinder_uml.png)
+
+```Java
+final class FieldViewBinding {
+    // 变量名
+    private final String name;
+    // 类型
+    private final TypeName type;
+
+    FieldViewBinding(String name, TypeName type) {
+        this.name = name;
+        this.type = type;
+    }
+    // 省略getter方法
+}
+
+final class ViewBinding {
+    // view id
+    private final int id;
+    // id对应绑定的变量，可为空
+    private FieldViewBinding fieldBinding;
+
+    public ViewBinding(int id) {
+        this.id = id;
+    }
+    // 省略getter setter方法
+}
+
+class BindingSet {
+    // 绑定的类
+    private final TypeName targetTypeName;
+    // 生成的类
+    private final ClassName bindingClassName;
+    private Map<Integer, ViewBinding> viewIdMap = new LinkedHashMap<>();
+
+    public BindingSet(TypeName targetTypeName, ClassName bindingClassName) {
+        this.targetTypeName = targetTypeName;
+        this.bindingClassName = bindingClassName;
+    }
+
+    public void addField(int id, FieldViewBinding fieldBinding) {
+        getOrCreateViewBinding(id).setFieldBinding(fieldBinding);
+    }
+    // 省略部分方法
+}
+```
+
+##### 收集信息
+类设计好了，开始收集信息了
+```Java
+    private Map<TypeElement, BindingSet> findAndParseTargets(RoundEnvironment env) {
+        Map<TypeElement, BindingSet> bindingMap = new LinkedHashMap<>();
+
+        for (Element element : env.getElementsAnnotatedWith(BindView.class)) {
+            try {
+                parseBindView(element, bindingMap);
+            } catch (Exception e) {
+                logParsingError(element, BindView.class, e);
+            }
+        }
+
+        return bindingMap;
+    }
+
+    private void parseBindView(Element element, Map<TypeElement, BindingSet> bindingMap) {
+        // 属性所在的类
+        TypeElement enclosingElement = (TypeElement) element.getEnclosingElement();
+        // 绑定的id
+        int id = element.getAnnotation(BindView.class).value();
+        // 变量名
+        String name = element.getSimpleName().toString();
+        // 变量类型
+        TypeName type = TypeName.get(element.asType());
+
+        BindingSet bindingSet = getOrCreateBindingSet(bindingMap, enclosingElement);
+        bindingSet.addField(id, new FieldViewBinding(name, type));
+    }
+```
+通过`env.getElementsAnnotatedWith(BindView.class)`，获取含`@BindView`注解的元素集合。遍历元素集合，获取元素的信息，并添加到`BindingSet`中。那`getOrCreateBindingSet()`到底做了什么
+
+```Java
+    private BindingSet getOrCreateBindingSet(Map<TypeElement, BindingSet> bindingMap,
+                                             TypeElement enclosingElement) {
+        BindingSet bindingSet = bindingMap.get(enclosingElement);
+        if (bindingSet == null) {
+            TypeMirror typeMirror = enclosingElement.asType();
+            // 绑定的类
+            TypeName targetType = TypeName.get(typeMirror);
+
+            String packageName = mElementUtils.getPackageOf(enclosingElement).getQualifiedName().toString();
+            String className = enclosingElement.getQualifiedName().toString().substring(
+                    packageName.length() + 1).replace('.', '$');
+            // 生成的类
+            ClassName bindingClassName = ClassName.get(packageName, className + "_ViewBinding");
+
+            bindingSet = new BindingSet(targetType, bindingClassName);
+            bindingMap.put(enclosingElement, bindingSet);
+        }
+        return bindingSet;
+    }
+```
+根据`enclosingElement`，检查`bindingMap`中对应的值是否为空。非空直接返回，空则创建并添加到`bindingMap`中。那这个`enclosingElement`是什么鬼？其实就是`@BindView`绑定的属性所在的类，也就是我们的`Activity`。
+
+从`enclosingElement`中，我们获取到其对应的`TypeName`，还拼接出表示要生成的`ViewBinding`类的`ClassName`。这个`ViewBinding`将会与`Activity`同在一个package下，并且命名为`ActivityClassName_ViewBinding`
+
+##### 生成代码
+信息收集完毕，开始生成`ViewBinding`类。这里要使用到[JavaPoet](https://github.com/square/javapoet)，所以要在`binder-compiler`的build.gradle文件中添加依赖
+```Groovy
+dependencies {
+    implementation project(':binder-annotations')
+    implementation 'com.squareup:javapoet:1.11.1'
+}
+```
+对`JavaPoet`不熟悉的话也没关系，边写边看就好了
+
+```Java
+class BindingSet {
+    // 绑定的类
+    private final TypeName targetTypeName;
+    // 生成的类
+    private final ClassName bindingClassName;
+    private Map<Integer, ViewBinding> viewIdMap = new LinkedHashMap<>();
+    // 省略部分代码
+
+    JavaFile brewJava() {
+        TypeSpec bindingConfiguration = createType();
+        return JavaFile.builder(bindingClassName.packageName(), bindingConfiguration)
+                .addFileComment("Generated code from ViewBinder. Do not modify!")
+                .build();
+    }
+
+    private TypeSpec createType() {
+        // public class MainActivity_ViewBinding
+        TypeSpec.Builder result = TypeSpec.classBuilder(bindingClassName.simpleName())
+                .addModifiers(Modifier.PUBLIC);
+
+        // public static void bind(MainActivity target)
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("bind")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(void.class)
+                .addParameter(targetTypeName, "target", Modifier.FINAL);
+
+        Collection<ViewBinding> viewBindings = Collections.unmodifiableCollection(viewIdMap.values());
+        for (ViewBinding viewBinding : viewBindings) {
+            FieldViewBinding fieldBinding = viewBinding.getFieldBinding();
+            if (fieldBinding != null) {
+                // target.title = (TextView)target.findViewById(R.id.title);
+                methodBuilder.addStatement("target.$L = ($T)target.findViewById($L)",
+                        fieldBinding.getName(), fieldBinding.getType(), viewBinding.getId());
+            }
+        }
+
+        result.addMethod(methodBuilder.build());
+        return result.build();
+    }
+}
+```
+将我们前面收集的信息，结合`JavaPoet`生成`ViewBiding`类。这部分代码和生成的代码对比着看比较好理解
+
+```Java
+public class MainActivity_ViewBinding {
+  public static void bind(final MainActivity target) {
+    target.mTitleView = (TextView)target.findViewById(2131165318);
+    target.mImageView = (ImageView)target.findViewById(2131165253);
+  }
+}
+```
+最后只需在process方法中，调用相关方法即可自动生成`ViewBiding`类
+
+```Java
+    @Override
+    public boolean process(Set<? extends TypeElement> set, RoundEnvironment env) {
+        Map<TypeElement, BindingSet> bindingMap = findAndParseTargets(env);
+        for (Map.Entry<TypeElement, BindingSet> entry : bindingMap.entrySet()) {
+            TypeElement typeElement = entry.getKey();
+            BindingSet bindingSet = entry.getValue();
+            try {
+                bindingSet.brewJava().writeTo(mFiler);
+            } catch (IOException e) {
+                error(typeElement, "Unable to write binding for type %s: %s", typeElement, e.getMessage());
+            }
+        }
+        return true;
+    }
+```
+
+#### API模块的实现
+参考`ButterKnife`的API，创建一个`ViewBinder`类。提供对外使用的API
+```
+ViewBinder.bind(activity)
+```
+这个方法里面需要做的事就两个：
+
+* 根据传入的`Activity`寻找对应的`ViewBinding`类
+* 调用`MainActivity_ViewBinding`的`bind`方法
+
+考虑到反射性能的问题，所以一般会加上缓存处理
+```Java
+public final class ViewBinder {
+    static final Map<Class<?>, Method> BINDINGS = new LinkedHashMap<>();
+
+    public static void bind(Activity target) {
+        Class<?> targetClass = target.getClass();
+        Method method = findBindingMethodForClass(targetClass);
+        try {
+            method.invoke(null, target);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static Method findBindingMethodForClass(Class<?> cls) {
+        Method bindingMethod = BINDINGS.get(cls);
+        if (bindingMethod != null || BINDINGS.containsKey(cls)) {
+            return bindingMethod;
+        }
+        String clsName = cls.getName();
+        try {
+            Class<?> bindingClass = cls.getClassLoader().loadClass(clsName + "_ViewBinding");
+            bindingMethod = bindingClass.getMethod("bind", cls);
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        }
+        BINDINGS.put(cls, bindingMethod);
+        return bindingMethod;
+    }
+}
+```
 
 参考：
 
 * [Getting Started with the Annotation Processing Tool, apt](https://docs.oracle.com/javase/7/docs/technotes/guides/apt/GettingStarted.html)
 * [Android 利用 APT 技术在编译期生成代码](https://brucezz.itscoder.com/use-apt-in-android)
-* [javapoet](https://github.com/square/javapoet)
+* [Android 如何编写基于编译时注解的项目](https://blog.csdn.net/lmj623565791/article/details/51931859)
+* [JavaPoet](https://github.com/square/javapoet)
 * [ButterKnife](https://github.com/JakeWharton/butterknife)
