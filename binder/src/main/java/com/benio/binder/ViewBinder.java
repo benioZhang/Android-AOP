@@ -38,6 +38,7 @@ public final class ViewBinder {
         Method bindingMethod = BINDINGS.get(cls);
         if (bindingMethod != null || BINDINGS.containsKey(cls)) {
             if (DEBUG) Log.d(TAG, "HIT: Cached in binding map.");
+            return bindingMethod;
         }
         String clsName = cls.getName();
         try {
