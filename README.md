@@ -1,9 +1,9 @@
 ## AOP
 此项目是旨在学习AOP在Android上的相关技术
 
-### 一. APT
+## 一. APT
 
-#### 什么是APT？
+### 什么是APT？
 
 引用官方文档的描述
 > The command-line utility apt, annotation processing tool, finds and executes annotation processors based on the annotations present in the set of specified source files being examined. The annotation processors use a set of reflective APIs and supporting infrastructure to perform their processing of program annotations (JSR 175). The apt reflective APIs provide a build-time, source-based, read-only view of program structure. These reflective APIs are designed to cleanly model the JavaTM programming language's type system after the addition of generics (JSR 14). First, apt runs annotation processors that can produce new source code and other files. Next, apt can cause compilation of both original and generated source files, thus easing the development cycle.
@@ -12,12 +12,12 @@
 
 APT会在编译期解析注解。所以很多第三方库，如`Dagger2`，`ButterKnife`，`EventBus3`等都使用APT来实现相关功能。
 
-如果对Annotation还不是很了解的话，可以看看这个图
+如果对`Annotation`还不是很了解的话，可以看看这个图
 ![注解介绍](img/annotation_intro.jpg)
 
 接下来会实现一个类似`ButterKnife`功能的项目`ViewBinder`，通过实现`@BindView`注解来学习APT
 
-#### 项目结构
+### 项目结构
 参考`ButterKnife`的模块划分，新建`ViewBinder`项目，然后新建如下模块：
 
 * `binder` - Android Library，存放对外使用的API
@@ -28,8 +28,8 @@ APT会在编译期解析注解。所以很多第三方库，如`Dagger2`，`Butt
 
 * `binder-compiler` 依赖 `binder-annotations`
 
-#### 创建注解
-`@BindView`用于成员变量，并且需要接收一个id作为参数，用于绑定View。
+### 创建注解
+`@BindView`用于成员变量，并且需要接收一个id作为参数，用于绑定`View`。
 
 ```Java
 @Retention(RetentionPolicy.CLASS)
@@ -40,7 +40,7 @@ public @interface BindView {
 }
 ```
 
-#### 创建注解处理器
+### 创建注解处理器
 创建一个`AbstractProcessor`的子类，并重写相关方法
 ```Java
 public class BinderProcessor extends AbstractProcessor {
@@ -74,7 +74,9 @@ public class BinderProcessor extends AbstractProcessor {
     }
 }
 ```
-所有的注解处理器类都必须有一个无参构造函数。下面介绍下`AbstractProcessor`几个常用的方法：
+所有的注解处理器类都必须有一个无参构造函数。因为APT是通过SPI(Service Provider Interfaces)机制，借助`Serviceloader`读取`META-INF/services`下的配置文件，然后利用反射调用无参构造函数来加载注解处理器的
+
+下面介绍下`AbstractProcessor`几个常用的方法：
 
 * `init(ProcessingEnvironment env)`：初始化方法，可以在此获取一些工具类：
     * `Filer`：文件相关的辅助类，生成JavaSourceCode
@@ -84,9 +86,9 @@ public class BinderProcessor extends AbstractProcessor {
 * `getSupportedSourceVersion()`：指定使用的Java版本。通常返回SourceVersion.latestSupported()
 * `process(Set<? extends TypeElement> set, RoundEnvironment env)`：最重要的方法。在这个方法里可以对注解进行处理，并生成相应的文件。
 
-另外，如果注解处理器类生成了新的源文件，APT会重复调用`Processor`的方法，直到不再生成新的源文件为止（因为新生成的源文件可能会包含需要被处理的注解）
+另外，如果注解处理器类生成了新的源文件，APT会重复调用注解处理器的方法，直到不再生成新的源文件为止（因为新生成的源文件可能会包含需要被处理的注解）
 
-##### 如何编译注解处理器?
+#### 如何编译注解处理器?
 方法一：  
 在Gradle Project面板中，依次选择binder-compiler -> Tasks -> build -> build，双击运行即可
 
@@ -96,7 +98,7 @@ public class BinderProcessor extends AbstractProcessor {
 gradlew binder-compiler:build
 ```
 
-##### 遇到的问题
+#### 遇到的问题
 错误: 编码GBK的不可映射字符  
 
 解决方法：  
@@ -108,7 +110,9 @@ tasks.withType(JavaCompile) {
 ```
 然后重新sync一下即可
 
-#### 注册注解处理器
+### 注册注解处理器
+前面说了，APT是通过SPI来加载注解处理器的，所以使用SPI的方式注册即可
+
 方法一：  
 在`binder-compiler`中的/src/main/文件夹下，新建resources/META-INF/services/文件夹，然后创建一个名为`javax.annotation.processing.Processor`的文件。文件内容为
 ```
@@ -128,7 +132,7 @@ public class BinderProcessor extends AbstractProcessor {
 ```
 标记后再build一下，`AutoService`就会自动生成方法一里面的`javax.annotation.processing.Processor`文件
 
-#### 实现注解处理器的process
+### 实现注解处理器的process
 process()方法里面做的事情有两个：
 
 * 收集被注解的`Element`的信息
@@ -141,7 +145,7 @@ process()方法里面做的事情有两个：
 * `TypeElement`：一般代表代表类
 * `PackageElement`：一般代表Package
 
-##### 类的设计
+#### 类的设计
 
 每个`Activity`将生成一个`ViewBinding`类。如`MainActivity`将生成`MainActivity_ViewBinding`。我们的目标是要生成这样一个类
 ```Java
@@ -201,7 +205,7 @@ class BindingSet {
 }
 ```
 
-##### 收集信息
+#### 收集信息
 类设计好了，开始收集信息了
 ```Java
     private Map<TypeElement, BindingSet> findAndParseTargets(RoundEnvironment env) {
@@ -259,7 +263,7 @@ class BindingSet {
 
 从`enclosingElement`中，我们获取到其对应的`TypeName`，还拼接出表示要生成的`ViewBinding`类的`ClassName`。这个`ViewBinding`将会与`Activity`同在一个package下，并且命名为`ActivityClassName_ViewBinding`
 
-##### 生成代码
+#### 生成代码
 信息收集完毕，开始生成`ViewBinding`类。这里要使用到[JavaPoet](https://github.com/square/javapoet)，所以要在`binder-compiler`的build.gradle文件中添加依赖
 ```Groovy
 dependencies {
@@ -340,7 +344,7 @@ public class MainActivity_ViewBinding {
     }
 ```
 
-#### API模块的实现
+### API模块的实现
 参考`ButterKnife`的API，创建一个`ViewBinder`类。提供对外使用的API
 ```
 ViewBinder.bind(activity)
@@ -387,7 +391,7 @@ public final class ViewBinder {
 }
 ```
 
-参考：
+### 参考：
 
 * [Getting Started with the Annotation Processing Tool, apt](https://docs.oracle.com/javase/7/docs/technotes/guides/apt/GettingStarted.html)
 * [Android 利用 APT 技术在编译期生成代码](https://brucezz.itscoder.com/use-apt-in-android)
