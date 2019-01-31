@@ -37,9 +37,7 @@ public class BinderProcessor extends AbstractProcessor {
     private Elements mElementUtils; //元素相关的辅助类，帮助我们去获取一些元素相关的信息
     private Messager mMessager; //日志相关的辅助类
     private static final List<Class<? extends Annotation>> LISTENERS =
-            new ArrayList<Class<? extends Annotation>>() {{
-                add(OnClick.class);
-            }};
+            Arrays.<Class<? extends Annotation>>asList(OnClick.class);
 
     @Override
     public synchronized void init(ProcessingEnvironment env) {
