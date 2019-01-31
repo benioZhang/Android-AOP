@@ -1,4 +1,4 @@
-package com.benio.aop.demo;
+package com.benio.apt.demo;
 
 import android.graphics.Color;
 import android.os.Bundle;

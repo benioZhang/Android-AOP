@@ -1,4 +1,4 @@
-package com.benio.aop.demo;
+package com.benio.apt.demo;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
