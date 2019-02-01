@@ -1,12 +1,15 @@
 package com.benio.ast.demo;
 
 import android.os.Bundle;
-import android.app.Activity;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
+/**
+ * 测试几种常见的打Log的方式
+ */
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
+    private static final boolean DEBUG = BuildConfig.DEBUG;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -18,24 +21,28 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        Log.d(TAG, "onStart: ");
+        if (DEBUG) {
+            Log.d(TAG, "onStart: ");
+            System.out.println("onStart:");
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        Log.d(TAG, "onResume: ");
+        if (DEBUG) Log.d(TAG, "onResume: ");
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        Log.d(TAG, "onStop: ");
+        Logger.d("onStop: ");
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        Log.d(TAG, "onDestroy: ");
+        if (DEBUG) Log.d(TAG, "onDestroy: ");
+        System.out.println("onDestroy:");
     }
 }
