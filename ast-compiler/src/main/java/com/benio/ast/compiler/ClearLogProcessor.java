@@ -20,7 +20,7 @@ import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
 public class ClearLogProcessor extends AbstractProcessor {
-    private static final List<String> LOG_TAGS = Arrays.asList("Log.", "Logger");
+    private static final List<String> LOG_TAGS = Arrays.asList("Log.", "Logger.");
     private Trees mTrees;// 抽象语法树
     private Elements mElementUtils;
 
@@ -45,6 +45,9 @@ public class ClearLogProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
+        long startMillis = System.currentTimeMillis();
+        note("start processing");
+
         for (Element element : roundEnvironment.getRootElements()) {
             // 粒度为类
             if (element.getKind() == ElementKind.CLASS) {
@@ -71,6 +74,9 @@ public class ClearLogProcessor extends AbstractProcessor {
                 jcTree.accept(translator);
             }
         }
+
+        long endMillis = System.currentTimeMillis();
+        note("end processing, cost time: %d", endMillis - startMillis);
         return true;
     }
 

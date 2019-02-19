@@ -137,7 +137,7 @@ process()方法里面做的事情有两个：
 
 * `VariableElement`：一般代表成员变量
 * `ExecutableElement`：一般代表类中的方法
-* `TypeElement`：一般代表代表类
+* `TypeElement`：一般代表类
 * `PackageElement`：一般代表Package
 
 #### 类的设计
