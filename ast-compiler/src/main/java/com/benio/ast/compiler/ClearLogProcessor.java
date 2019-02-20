@@ -21,7 +21,7 @@ import javax.tools.Diagnostic;
 
 public class ClearLogProcessor extends AbstractProcessor {
     private static final List<String> LOG_TAGS = Arrays.asList("Log.", "Logger.");
-    private Trees mTrees;// 抽象语法树
+    private Trees mTrees;// 抽象语法树工具集
     private Elements mElementUtils;
 
     @Override
@@ -47,7 +47,7 @@ public class ClearLogProcessor extends AbstractProcessor {
     public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
         long startMillis = System.currentTimeMillis();
         note("start processing");
-
+        // 遍历所有类
         for (Element element : roundEnvironment.getRootElements()) {
             // 粒度为类
             if (element.getKind() == ElementKind.CLASS) {
