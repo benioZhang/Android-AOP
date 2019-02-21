@@ -86,7 +86,7 @@ public class BinderProcessor extends AbstractProcessor {
 
         long endMillis = System.currentTimeMillis();
         note(null, "end processing, cost time: %d", endMillis - startMillis);
-
+        // 返回true表示注解已经被处理, 后续不会再有其他处理器处理；返回false表示仍可被其他处理器处理
         return true;
     }
 

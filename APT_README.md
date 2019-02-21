@@ -128,10 +128,11 @@ public class BinderProcessor extends AbstractProcessor {
 标记后再build一下，`AutoService`就会自动生成方法一里面的`javax.annotation.processing.Processor`文件
 
 ### 实现注解处理器的process
-process()方法里面做的事情有两个：
+process()方法里面要做的事情：
 
 * 收集被注解的`Element`的信息
 * 生成用于绑定的类，这里我把这些类命名为`ViewBinding`类
+* 返回是否处理了这些注解。返回true表示该注解已经被处理, 后续不会再有其他处理器处理；返回false表示仍可被其他处理器处理
 
 这里简单介绍下`Element`的几种类型：
 
@@ -335,6 +336,7 @@ public class MainActivity_ViewBinding {
                 error(typeElement, "Unable to write binding for type %s: %s", typeElement, e.getMessage());
             }
         }
+        // 返回true表示注解已经被处理, 后续不会再有其他处理器处理；返回false表示仍可被其他处理器处理
         return true;
     }
 ```
