@@ -1,1 +1,2 @@
 com.benio.ast.compiler.ClearLogProcessor
+com.benio.ast.compiler.TrackEventProcessor

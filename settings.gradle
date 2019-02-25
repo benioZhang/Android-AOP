@@ -1,1 +1,1 @@
-include ':binder-sample', ':binder-annotations', ':binder-compiler', ':binder', ':ast-sample', ':ast-compiler'
+include ':binder-sample', ':binder-annotations', ':binder-compiler', ':binder', ':ast-sample', ':ast-compiler', ':ast-annotations'

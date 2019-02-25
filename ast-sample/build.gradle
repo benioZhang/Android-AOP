@@ -25,4 +25,5 @@ dependencies {
     androidTestImplementation rootProject.ext.deps.runner
     androidTestImplementation rootProject.ext.deps.espresso
     annotationProcessor project(':ast-compiler')
+    implementation project(':ast-annotations')
 }

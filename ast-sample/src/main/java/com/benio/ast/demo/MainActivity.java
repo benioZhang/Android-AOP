@@ -4,6 +4,8 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
+import com.benio.ast.TrackEvent;
+
 /**
  * 测试几种常见的打Log的方式
  */
@@ -11,6 +13,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final boolean DEBUG = BuildConfig.DEBUG;
 
+    @TrackEvent("main_onCreate_event")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -18,6 +21,7 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "onCreate: ");
     }
 
+    @TrackEvent("main_onStart_event")
     @Override
     protected void onStart() {
         super.onStart();

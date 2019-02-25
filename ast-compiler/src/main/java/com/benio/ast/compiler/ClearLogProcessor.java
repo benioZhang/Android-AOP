@@ -77,7 +77,7 @@ public class ClearLogProcessor extends AbstractProcessor {
 
         long endMillis = System.currentTimeMillis();
         note("end processing, cost time: %d", endMillis - startMillis);
-        return true;
+        return false;
     }
 
     private void note(String message, Object... args) {
