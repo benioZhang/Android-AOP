@@ -89,10 +89,13 @@ public class TrackEventProcessor extends AbstractProcessor {
                 @Override
                 public void visitMethodDef(JCTree.JCMethodDecl jcMethodDecl) {
                     super.visitMethodDef(jcMethodDecl);
-                    JCTree.JCStatement statement = trackEventHelper.createStatement(trackEvent);
-                    note("In %s, %s will append statement: %s",
-                            element.getEnclosingElement(), element, statement);
-                    jcMethodDecl.body.stats = jcMethodDecl.body.stats.append(statement);
+                    // 防止添加语句错误，如不添加，被标注方法内的匿名内部类的方法也会被添加语句
+                    if (jcMethodDecl.getName().equals(element.getSimpleName())) {
+                        JCTree.JCStatement statement = trackEventHelper.createStatement(trackEvent);
+                        note("In %s, method %s will append statement: %s",
+                                element.getEnclosingElement(), jcMethodDecl.getName(), statement);
+                        jcMethodDecl.body.stats = jcMethodDecl.body.stats.append(statement);
+                    }
                 }
             });
         }
